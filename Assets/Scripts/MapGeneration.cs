@@ -888,7 +888,6 @@ public class MapGeneration : MonoBehaviour {
                         //Debug.Log("deltaX " + deltaX);
                         //Debug.Log("deltaY " + deltaY);
 
-
                         if (deltaY == 0 || (deltaY > 0 && deltaY <= buffer+1 && (maxY + deltaY - buffer - 1 < buffer + 2))) //Check if building can align to borders or: 
                         {                                                                      //building is on border, and is its zone before buffer is lower than we need
                             maxArea = new Vector2(maxArea.x, maxArea.y + deltaY - buffer - 1); //Check standrad iterations before the buffer
@@ -944,75 +943,108 @@ public class MapGeneration : MonoBehaviour {
                                         outerBreak = true;
                                         break;
                                     }
-                                    
+
                                     //If there are overlap with inner buffers -lauch procedure of jump
                                     if (regions[j].CheckInnerBorders(area, parents[coordNum]))
                                     {
                                         Debug.Log("overlap with parent " + x + " " + y + " " + region);
                                         //If there are enough steps to connect to collided area, we can try to connect
-                                        if (maxArea.x - i < buffer)
-                                        {
-                                            area.upperLeft.Add(-ul_right * first, 0);
-                                            area.lowerRight.Add(-lr_right * first, 0);
-                                            Debug.Log("Insufficient reserve x");
-                                            outerBreak = true;
-                                            break;
-                                            
-                                        }
                                         //Connecting...
-                                        else
+
+                                        int areaToAdd = 0;
+
+                                        bool failed = false;
+
+                                        if (!connectedX)
                                         {
-                                            area.upperLeft.Add(ul_right * first * buffer, 0);
-                                            area.lowerRight.Add(lr_right * first * buffer, 0);
-                                            jumpX = !jumpX;
-
-                                            Debug.Log("uppeleft " + new Vector2(area.upperLeft.x, area.upperLeft.y) + " lower right " + new Vector2(area.lowerRight.x, area.lowerRight.y));
-
-                                            if (regions[j].CheckParentRegionSustainability(area, parents[coordNum]))
+                                            if (maxArea.x - i < buffer)
                                             {
-                                                Debug.Log("Region is sustainable x");
-                                                for (int l = 0; l < regions.Length; l++)
-                                                {
-                                                    if (l == parents[coordNum]) continue;
-                                                    if (regions[l].CheckParentRegionOverlap(area) || regions[l].CheckBufferRegionOverlap(area))
-                                                    {
-                                                        area.upperLeft.Add(-ul_right * first * buffer, 0);
-                                                        area.lowerRight.Add(-lr_right * first * buffer, 0);
-                                                        outerBreak = true;
-                                                        jumpX = !jumpX;
-                                                        break;
-                                                    }
-                                                }
-                                                connectedX = true;
+                                                area.upperLeft.Add(-ul_right * first, 0);
+                                                area.lowerRight.Add(-lr_right * first, 0);
+                                                Debug.Log("Insufficient reserve x");
                                                 outerBreak = true;
                                                 break;
                                             }
                                             else
                                             {
-                                                area.upperLeft.Add(-ul_right * first * buffer, 0);
-                                                area.lowerRight.Add(-lr_right * first * buffer, 0);
-                                                outerBreak = true;
-                                                jumpX = !jumpX;
-                                                break;
+                                                Debug.Log("Closer " + (buffer));
+                                                areaToAdd = buffer;
                                             }
                                         }
+                                        else if (connectedX)
+                                        {
+                                            areaToAdd = 0;
+                                            //jumpY = !jumpY;
+                                        }
+
+                                        area.upperLeft.Add(ul_right * first * areaToAdd, 0);
+                                        area.lowerRight.Add(lr_right * first * areaToAdd, 0);
+
+                                        Debug.Log("upper left " + new Vector2(area.upperLeft.x, area.upperLeft.y) + " lower right " + new Vector2(area.lowerRight.x, area.lowerRight.y));
+
+                                        Debug.Log(regions[j].CheckParentRegionSustainability(area, parents[coordNum]));
+
+                                        if (regions[j].CheckParentRegionSustainability(area, parents[coordNum]))
+                                        {
+
+                                            Debug.Log("Region is sustainable x");
+                                            for (int l = 0; l < regions.Length; l++)
+                                            {
+                                                if (l == parents[coordNum]) continue;
+                                                if (regions[l].CheckParentRegionOverlap(area))
+                                                {
+                                                    Debug.Log("Fail");
+                                                    area.upperLeft.Add(-ul_right * first * areaToAdd, 0);
+                                                    area.lowerRight.Add(-lr_right * first * areaToAdd, 0);
+                                                    outerBreak = true;
+                                                    failed = true;
+                                                    jumpX = false;
+                                                    break;
+                                                }
+                                            }
+
+                                            
+                                            //If we fail to connect initially, we break out
+                                            if (!connectedX && !failed)
+                                            {
+                                                i = i + buffer;
+                                                Debug.Log("Proceed");
+                                                connectedX = true;
+                                            }
+                                            else if (!connectedX && failed)
+                                            {
+                                                outerBreak = true;
+                                                break;
+                                            }
+
+                                        }
+                                        else
+                                        {
+                                            Debug.Log("Also fail");
+                                            area.upperLeft.Add(-ul_right * first * areaToAdd, 0);
+                                            area.lowerRight.Add(-lr_right * first * areaToAdd, 0);
+                                            outerBreak = true;
+                                            jumpX = false;
+                                            break;
+                                        }
+
+                                        continue;
                                     }
-                                    continue;
+
+                                    //Secondly we check possible overlaps with outer buffers
+                                    if (regions[j].CheckBufferRegionOverlap(area))
+                                    {
+                                        area.upperLeft.Add(-ul_right * first, 0);
+                                        area.lowerRight.Add(-lr_right * first, 0);
+
+                                        outerBreak = true;
+                                        break;
+                                    }
                                 }
-
-                                //Secondly we check possible overlaps with outer buffers
-                                if (regions[j].CheckBufferRegionOverlap(area))
+                                if (outerBreak == true)
                                 {
-                                    area.upperLeft.Add(-ul_right * first, 0);
-                                    area.lowerRight.Add(-lr_right * first, 0);
-
-                                    outerBreak = true;
                                     break;
                                 }
-                            }
-                            if (outerBreak == true)
-                            {
-                                break;
                             }
                         }
 
@@ -1049,81 +1081,112 @@ public class MapGeneration : MonoBehaviour {
                                     //If there are overlap with inner buffers -lauch precuder of jump
                                     if (regions[j].CheckInnerBorders(area, parents[coordNum]))
                                     {
-                                        Debug.Log("overlap with parent " + x + " " + y + " " + region);
+                                        //Debug.Log("overlap with parent " + x + " " + y + " " + region);
                                         //If there are enough steps to connect to collided area, we can try to connect
-                                        if (maxArea.y - i < buffer)
-                                        {
-                                            area.upperLeft.Add(0, -ul_up * first);
-                                            area.lowerRight.Add(0, -lr_up * first);
-                                            Debug.Log("Insufficient reserve y");
-                                            outerBreak = true;
-                                            break;
-                                        }
                                         //Connecting...
-                                        else
-                                        {
-                                            int areaToAdd = 0;
 
-                                            if (connectedX && !connectedY)
+                                        bool allowJumpY = jumpY;
+
+                                        int areaToAdd = 0;
+
+                                        bool failed = false;
+
+                                        if (connectedX && !connectedY)
+                                        {
+                                            if (maxArea.y - i < buffer+1)
                                             {
-                                                areaToAdd = buffer+2;
+                                                area.upperLeft.Add(0, -ul_up * first);
+                                                area.lowerRight.Add(0, -lr_up * first);
+                                                //Debug.Log("Insufficient reserve y");
+                                                outerBreak = true;
+                                                break;
+                                            }
+                                            else
+                                            {
+                                                //Debug.Log("Closer " + (buffer + 2));
+                                                areaToAdd = buffer + 1;
                                                 //jumpY = !jumpY;
                                             }
-                                            else if (connectedX && connectedY)
+                                        }
+                                        else if ((connectedX && connectedY) || (!connectedX && connectedY))
+                                        {
+                                            areaToAdd = 0;
+                                            //jumpY = !jumpY;
+                                        }
+                                        else
+                                        {
+                                            if (maxArea.y - i < buffer)
                                             {
-                                                areaToAdd = 1;
-                                                //jumpY = !jumpY;
+                                                area.upperLeft.Add(0, -ul_up * first);
+                                                area.lowerRight.Add(0, -lr_up * first);
+                                                //Debug.Log("Insufficient reserve y");
+                                                outerBreak = true;
+                                                break;
                                             }
                                             else
                                             {
                                                 areaToAdd = buffer;
-                                                jumpY = !jumpY;
+                                                jumpY = false;
                                             }
+                                        }
 
-                                            area.upperLeft.Add(0, ul_up * first * areaToAdd);
-                                            area.lowerRight.Add(0, lr_up * first * areaToAdd);
+                                        area.upperLeft.Add(0, ul_up  * areaToAdd);
+                                        area.lowerRight.Add(0, lr_up * areaToAdd);
 
-                                            Debug.Log("uppeleft " + new Vector2(area.upperLeft.x, area.upperLeft.y) + " lower right " + new Vector2(area.lowerRight.x, area.lowerRight.y));
+                                        //Debug.Log("uppeleft " + new Vector2(area.upperLeft.x, area.upperLeft.y) + " lower right " + new Vector2(area.lowerRight.x, area.lowerRight.y));
 
-                                            if (regions[j].CheckParentRegionSustainability(area, parents[coordNum]))
-                                            {
+                                        if (regions[j].CheckParentRegionSustainability(area, parents[coordNum]))
+                                        {
                                                 
-                                                Debug.Log("Region is sustainable y");
-                                                for (int l = 0; l < regions.Length; l++)
+                                            //Debug.Log("Region is sustainable y");
+                                            for (int l = 0; l < regions.Length; l++)
+                                            {
+                                                if (l == parents[coordNum]) continue;
+                                                if (regions[l].CheckParentRegionOverlap(area))
                                                 {
-                                                    if (l == parents[coordNum]) continue;
-                                                    if (regions[l].CheckParentRegionOverlap(area) || regions[l].CheckBufferRegionOverlap(area))
-                                                    {
-                                                        area.upperLeft.Add(0, -ul_up * first * areaToAdd);
-                                                        area.lowerRight.Add(0, -lr_up * first * areaToAdd);
-                                                        outerBreak = true;
-                                                        if (!connectedX)
-                                                        {
-                                                            jumpY = !jumpY;
-                                                        }
-                                                        break;
-                                                    }
-                                                }
-
-                                                if (connectedX && !connectedY)
-                                                {
-                                                    connectedY = true;
-                                                }
-                                                else
-                                                {
+                                                    //Debug.Log("Fail");
+                                                    area.upperLeft.Add(0, -ul_up * areaToAdd);
+                                                    area.lowerRight.Add(0, -lr_up * areaToAdd);
                                                     outerBreak = true;
+                                                    failed = true;
+                                                    if (!connectedX)
+                                                    {
+                                                        jumpY = jumpY || allowJumpY;
+                                                    }
                                                     break;
                                                 }
+                                            }
 
+                                            if (connectedX && !connectedY && !failed)
+                                            {
+                                                connectedY = true;
+                                                i = i + buffer + 1;
+                                            }
+                                            else if (((connectedX && connectedY) || (!connectedX && connectedY)) && !failed)
+                                            {
+                                                i = i + 0;
+                                                //jumpY = !jumpY;
+                                            }
+                                            else if (!connectedX && !connectedY && !failed)
+                                            {
+                                                connectedY = true;
+                                                i = i + buffer;
+                                                //jumpY = !jumpY;
                                             }
                                             else
                                             {
-                                                area.upperLeft.Add(0, -ul_up * first * areaToAdd);
-                                                area.lowerRight.Add(0, -lr_up * first * areaToAdd);
                                                 outerBreak = true;
-                                                jumpY = !jumpY;
                                                 break;
                                             }
+
+                                        }
+                                        else
+                                        {
+                                            area.upperLeft.Add(0, -ul_up * areaToAdd);
+                                            area.lowerRight.Add(0, -lr_up * areaToAdd);
+                                            outerBreak = true;
+                                            jumpY = jumpY || allowJumpY;
+                                            break;
                                         }
                                     }
                                     continue;
